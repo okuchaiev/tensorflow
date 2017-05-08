@@ -221,6 +221,7 @@ namespace dynload {
   __macro(cublasChpr2)                    \
   __macro(cublasZhpr2)                    \
   __macro(cublasSgemm)                    \
+  __macro(cublasHgemm)                    \
   __macro(cublasDgemm)                    \
   __macro(cublasCgemm)                    \
   __macro(cublasZgemm)                    \
@@ -1685,16 +1686,24 @@ bool CUDABlas::DoBlasGemm(
                       "precondition violation";
     }
   }
+
+  //WARNING: this is only good on Pascal or better
+  Eigen::half half_alpha(alpha);
+  Eigen::half half_beta(beta);
+  return DoBlasInternal(dynload::cublasHgemm, stream, true,
+    		  CUDABlasTranspose(transa), CUDABlasTranspose(transb), m, n, k, &half_alpha,
+    		  CUDAMemory(a), lda, CUDAMemory(b), ldb, &half_beta, CUDAMemoryMutable(c), ldc);
+
   // TODO(sesse): Consider supporting the Hgemm interface, which uses half
   // calculations internally (faster on newer devices, such as Pascal and TX1,
   // but less precise).
-  return DoBlasInternal(
-      dynload::cublasSgemmEx, stream, true /* = pointer_mode_host */,
-      CUDABlasTranspose(transa), CUDABlasTranspose(transb), m, n, k, &alpha,
-      CUDAMemory(a), SE_CUDA_DATA_HALF, lda,
-      CUDAMemory(b), SE_CUDA_DATA_HALF, ldb,
-      &beta,
-      CUDAMemoryMutable(c), SE_CUDA_DATA_HALF, ldc);
+  //return DoBlasInternal(
+  //    dynload::cublasSgemmEx, stream, true /* = pointer_mode_host */,
+  //    CUDABlasTranspose(transa), CUDABlasTranspose(transb), m, n, k, &alpha,
+  //    CUDAMemory(a), SE_CUDA_DATA_HALF, lda,
+  //    CUDAMemory(b), SE_CUDA_DATA_HALF, ldb,
+  //    &beta,
+  //    CUDAMemoryMutable(c), SE_CUDA_DATA_HALF, ldc);
 #else
   LOG(ERROR) << "fp16 sgemm is not implemented in this cuBLAS version "
              << "(need at least CUDA 7.5)";
